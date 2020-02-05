@@ -53,6 +53,7 @@
                 <div class="col-md-4 text-center text-secondary">
                     <h3>Time: <span id="output-timer"></span></h3>
                     <h3>Average WT: <span id="output-awt"></span></h3>
+                    <input name="" id="btn-start" class="btn btn-primary" type="button" value="Start">
                 </div>
             </div>
         </div>
@@ -74,12 +75,28 @@
 <script>
 
     $(document).ready(function(){
-        var table = $('#tableId');
         var initialId = 1;
-        $('#job').val(initialId);
+        var collection = [];
         var data = [];
+        $('#job').val(initialId);
+        var table = $('#tableId');
         table.find("tbody tr").remove();
 
+
+        function getCurrentPointer(){
+            return collection.length;
+        }
+        function processNext(){
+            var queueCount = (data.filter(function(index){
+                    return index.queue;
+                })).length;
+            if(queueCount == 0){
+                queueByBurst();
+
+            }
+            
+            
+        }
         //adding data to array and to table
         $('#btn-addjob').click(function(){
             
@@ -94,29 +111,137 @@
             var table = $('#tableId');
 
             table.append("<tr><td>"+ initialId +"</td><td>"+ atime + "</td><td>"+ btime + "</td></tr>");
-            data.push({'id': initialId, 'arrivalTime': atime, 'burstTime':btime});
+            data.push({'id': initialId, 'arrivalTime': atime, 'burstTime':btime, 'done': false, 'queue': false});
             initialId++;
             $('#job').val(initialId);
-            getInitialJob(data);
-            $('#a_time').val("");
-            $('#b_time').val("");
+            clearValues();
+        });
+
+        // start of process
+        $('#btn-start').click(function(){
+            getInitialJob();
         });
 
         // getting the least arrival time value in the list;
-        function getInitialJob(items){
-           
-            var initIndex = 0;
-            $.each(items, function(index, value){
-                if(index == 0){
-                    initIndex = 0;
-                }
-                else if(items[initIndex].arrivalTime > items[index].arrivalTime){
-                    initIndex = index;
-                }
+        function getInitialJob(){
+           var initIndex = 0;
+           $.each(data, function(index, value){
+               if(data[index].done != true){
+                   if(index == 0){
+                       initIndex = 0;
+                   }
+                   else if(data[index].arrivalTime < data[initIndex].arrivalTime){
+                       initIndex = index;
+                   }
+               }
 
-            });
-            console.log(initIndex);
+
+           });
+           insertCollection(initIndex);
+           
+       }
+       
+        //clear the input fields
+        function clearValues(){
+            $('#a_time').val("");
+            $('#b_time').val("");
+        }
+
+
+
+        // check the item to be queued
+        function checkQueue(){
+            let currentPointer = getCurrentPointer();
+            $.each(data, function(index){
+                if(data[index].arrivalTime <= currentPointer && data[index].done == false){
+                    data[index].queue = true;
+                }
+        });
+            // console.log(data);
+            // process next items in the queue
+            processNext();
+        }
+            // force queue allocation if the next item does not passed
+            // on current pointer
+        function queueByBurst(){
+            var nextIndex = null;
+            if(itemsReview() == true){
+                return;
+            }
+            else{
+                $.each(data, function(index){
+                    if(data[index].done){
+                        return true;
+                    }
+                    else{
+                        if(nextIndex == null){
+                            nextIndex = index;
+                        }
+                        else{
+                            if(data[index].arrivalTime < data[nextIndex].arrivalTime){
+                                nextIndex = index;
+                            }
+                            
+                        }
+                    }
+                });
+                insertCollection(nextIndex);
+                
+            }
             
+        }
+
+
+        // intialize the data (actual operation)
+
+        function insertCollection(itemIndex){
+        // itemIndex is the index of the item you want to navigate
+        // and pass get the starting point of it and insert the range
+        // it will occupy
+            // fill the gap if the next item arrival time is more advance
+            // to the current pointer on the collection
+            var isAllDone = itemsReview();
+            if(isAllDone){
+                console.log(data);
+                return false;
+            }
+            else{
+                if(collection.length < data[itemIndex].arrivalTime){
+                    fillTheGapCollection(collection.length, itemIndex);
+                }
+                else{
+                    for(let i = 0; i < data[itemIndex].burstTime;i++){
+                        collection.push(`J${data[itemIndex].id}`);
+                        data[itemIndex].done = true;
+                        data[itemIndex].queue = false;
+                        checkQueue();
+                    }
+                }
+            }
+
+            console.log(collection);
+            console.log(data);
+            
+        }
+        
+        function fillTheGapCollection(currentPointer,nextItemIndex){
+            let fillerSpan = data[nextItemIndex].arrivalTime - currentPointer;
+            for(let f=0;f<fillerSpan; f++){
+                collection.push('N');
+            }
+            insertCollection(nextItemIndex);
+        }
+
+        function itemsReview(){
+            var numNotDone = data.filter(function(item){
+                    return !item.done;
+                }).length
+              if(numNotDone == 0){
+                  return true;
+              }
+              else{
+                  return false;
+              }
         }
         
         
